@@ -1,10 +1,19 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.core.exceptions import global_exception_handler, business_exception_handler, CustomBusinessException
 
 app = FastAPI(
     title="Concstar Backend",
     description="Backend API for Concstar",
     version="0.1.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://100.101.78.95:4203", "100.101.78.95:4203","100.101.78.95"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Register Exception Handlers
@@ -16,8 +25,9 @@ async def health_check():
     return {"status": "ok"}
 
 # Register Routers
-from app.routers import user_router, constancy_router, question_router, configuration_router, session_router
+from app.routers import user_router, constancy_router, question_router, configuration_router, session_router, auth_router
 
+app.include_router(auth_router.router)
 app.include_router(user_router.router)
 app.include_router(constancy_router.router)
 app.include_router(question_router.router)

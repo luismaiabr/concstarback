@@ -14,7 +14,20 @@ class UserController:
     @staticmethod
     async def create_user(user: UserCreate) -> UserResponse:
         client = get_supabase_client()
-        response = client.table("users").insert(user.model_dump()).execute()  # type: ignore
+        
+        # Check if email already exists
+        existing = client.table("users").select("id").eq("email", user.email).execute()
+        if existing.data:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email já cadastrado")
+            
+        from app.core.security import get_password_hash
+        
+        user_data = user.model_dump(mode="json")
+        password = user_data.pop("password")
+        user_data.pop("profilePhotoUrl", None)
+        user_data["hashed_password"] = get_password_hash(password)
+        
+        response = client.table("users").insert(user_data).execute()  # type: ignore
         if not response.data:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Falha ao criar usuário")
         return UserResponse.model_validate(response.data[0])

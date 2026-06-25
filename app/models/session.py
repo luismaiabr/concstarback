@@ -12,3 +12,8 @@ class Vote(BaseModel):
     date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$", description="Data da sessão na qual o voto foi registrado")
     time: str = Field(..., pattern=r"^\d{2}:\d{2}$", description="Horário sugerido pelo voto")
     userId: str = Field(..., description="ID único do usuário que registrou o voto")
+
+class CustomSessionResponse(BaseModel):
+    hasCustomSession: bool
+    checkInStartTime: str | None = None
+    startTime: str | None = None

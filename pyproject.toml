@@ -13,7 +13,9 @@ dependencies = [
     "pydantic (>=2.13.4,<3.0.0)",
     "pydantic-settings (>=2.14.2,<3.0.0)",
     "supabase (>=2.31.0,<3.0.0)",
-    "email-validator (>=2.3.0,<3.0.0)"
+    "email-validator (>=2.3.0,<3.0.0)",
+    "passlib[bcrypt] (>=1.7.4,<2.0.0)",
+    "pyjwt (>=2.8.0,<3.0.0)"
 ]
 
 [build-system]
