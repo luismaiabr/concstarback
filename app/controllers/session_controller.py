@@ -125,6 +125,7 @@ class SessionController:
         # Check if the user has already voted for this date and specific session
         existing_vote = client.table("votes").select("*").eq("date", vote.date).eq("original_checkin_time", vote.original_checkin_time).eq("user_id", user_id).execute()
         
+        status_msg = "added"
         if existing_vote.data:
             existing = existing_vote.data[0]
             if existing["time"] == vote.time + ":00" or existing["time"] == vote.time:
@@ -134,7 +135,7 @@ class SessionController:
             else:
                 # Update existing vote to new time
                 client.table("votes").update({"time": vote.time}).eq("id", existing["id"]).execute()
-                return {"status": "updated"}
+                status_msg = "updated"
         else:
             # Insert new vote
             client.table("votes").insert({
@@ -143,7 +144,47 @@ class SessionController:
                 "original_checkin_time": vote.original_checkin_time,
                 "user_id": user_id
             }).execute()
-            return {"status": "added"}
+
+        # Check if this vote reached the quota
+        all_votes = client.table("votes").select("*").eq("date", vote.date).eq("original_checkin_time", vote.original_checkin_time).eq("time", vote.time).execute()
+        
+        quota = 1
+        config_response = client.table("configurations").select("value").eq("key", "VOTE_SESSION_QUOTA").execute()
+        if config_response.data:
+            try:
+                quota = int(config_response.data[0].get("value", 1))
+            except ValueError:
+                pass
+                
+        if len(all_votes.data) >= quota:
+            # Fetch old session to get configs, or use defaults
+            old_session = client.table("sessions").select("*").eq("date", vote.date).eq("check_in_start_time", vote.original_checkin_time + ":00").execute()
+            
+            duration_delta = "00:10:00"
+            work_duration = "00:50:00"
+            
+            if old_session.data:
+                duration_delta = old_session.data[0].get("check_in_duration_delta", duration_delta)
+                work_duration = old_session.data[0].get("session_work_duration", work_duration)
+                client.table("sessions").delete().eq("id", old_session.data[0]["id"]).execute()
+            
+            # Insert new session
+            new_session_data = {
+                "date": vote.date,
+                "check_in_start_time": vote.time + ":00",
+                "check_in_duration_delta": duration_delta,
+                "session_work_duration": work_duration,
+                "is_custom_start_time": True,
+                "user_id": user_id
+            }
+            client.table("sessions").insert(new_session_data).execute()
+            
+            # Wipe slate clean for this original session time
+            client.table("votes").delete().eq("date", vote.date).eq("original_checkin_time", vote.original_checkin_time).execute()
+            
+            status_msg = "adopted"
+
+        return {"status": status_msg}
 
     @staticmethod
     async def list_votes():
