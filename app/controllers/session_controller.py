@@ -2,9 +2,33 @@ from fastapi import HTTPException, status
 from app.db.client import get_supabase_client
 from typing import List
 from datetime import datetime
-from app.models.session import CustomSessionResponse, Vote
+from app.models.session import CustomSessionResponse, Vote, CreateSessionDto
+
+async def sessionHasConflict(payload: CreateSessionDto):
+    client = get_supabase_client()
+    response = client.table("sessions").select("id").eq("date", payload.date).eq("isCustomStartTime", payload.is_custom_start_time).execute()
+    if response.data and len(response.data) > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Session already exists for this date and type."
+        )
+    return False
 
 class SessionController:
+    @staticmethod
+    async def create_session(payload: CreateSessionDto):
+        client = get_supabase_client()
+        data = {
+            "date": payload.date,
+            "checkInStartTime": payload.check_in_start_time,
+            "check_in_duration_delta": payload.check_in_duration_delta,
+            "isCustomStartTime": payload.is_custom_start_time,
+            "user": payload.user_id
+        }
+        # In Supabase, if we insert, it will return the inserted row
+        response = client.table("sessions").insert(data).execute()
+        return response.data
+
     @staticmethod
     async def list_sessions():
         client = get_supabase_client()

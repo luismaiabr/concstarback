@@ -1,11 +1,22 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.exceptions import global_exception_handler, business_exception_handler, CustomBusinessException
+from app.core.scheduler import start_scheduler, stop_scheduler
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    start_scheduler()
+    yield
+    # Shutdown
+    stop_scheduler()
 
 app = FastAPI(
     title="Concstar Backend",
     description="Backend API for Concstar",
     version="0.1.0",
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -23,6 +34,7 @@ app.add_exception_handler(CustomBusinessException, business_exception_handler)  
 @app.get("/health", tags=["System"])
 async def health_check():
     return {"status": "ok"}
+
 
 # Register Routers
 from app.routers import user_router, constancy_router, question_router, configuration_router, session_router, auth_router

@@ -16,3 +16,10 @@ class CustomSessionResponse(BaseModel):
     hasCustomSession: bool
     checkInStartTime: str | None = None
     checkInDurationDelta: str | None = None
+
+class CreateSessionDto(BaseModel):
+    date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$", description="Data da sessão (YYYY-MM-DD)")
+    check_in_start_time: str = Field(..., pattern=r"^\d{2}:\d{2}:\d{2}$", description="Horário de início (HH:MM:SS)")
+    check_in_duration_delta: str = Field(..., pattern=r"^\d{2}:\d{2}:\d{2}$", description="Duração da janela de check-in (HH:MM:SS)")
+    is_custom_start_time: bool = Field(..., description="Booleano indicando se é uma sessão de usuário")
+    user_id: str = Field(..., description="ID do usuário ou 'system.scheduler' para o sistema")
