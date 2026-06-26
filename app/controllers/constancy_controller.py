@@ -17,7 +17,7 @@ class ConstancyController:
         from datetime import datetime
         from app.controllers.session_controller import SessionController
         import os
-
+        import zoneinfo
         from app.controllers.configuration_controller import ConfigurationController
         
         # Fetch default times dynamically
@@ -35,7 +35,9 @@ class ConstancyController:
             elif "customcheckindurationdelta" in default_times:
                 duration_delta_str = default_times["customcheckindurationdelta"]
 
-        now = datetime.now()
+        tz_str = os.getenv("APP_TIMEZONE", "America/Sao_Paulo")
+        tz = zoneinfo.ZoneInfo(tz_str)
+        now = datetime.now(tz)
         # parse hours, mins, secs
         def parse_time(t_str):
             parts = t_str.split(":")

@@ -14,7 +14,11 @@ class SessionController:
     @staticmethod
     async def get_today_custom_session() -> CustomSessionResponse:
         client = get_supabase_client()
-        today = datetime.now().strftime("%Y-%m-%d")
+        import os
+        import zoneinfo
+        tz_str = os.getenv("APP_TIMEZONE", "America/Sao_Paulo")
+        tz = zoneinfo.ZoneInfo(tz_str)
+        today = datetime.now(tz).strftime("%Y-%m-%d")
         
         # Obter todos os votos de hoje
         votes_response = client.table("votes").select("*").eq("date", today).execute()
