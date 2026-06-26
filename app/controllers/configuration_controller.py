@@ -26,7 +26,8 @@ class ConfigurationController:
     @staticmethod
     async def get_default_times():
         client = get_supabase_client()
-        response = client.table("configurations").select("*").in_("key", ["defaultcheckintime", "defaultcheckindurationdelta", "customcheckindurationdelta"]).execute()
+        keys_to_fetch = ["defaultcheckintime", "defaultcheckindurationdelta", "customcheckindurationdelta", "VOTE_SESSION_QUOTA"]
+        response = client.table("configurations").select("*").in_("key", keys_to_fetch).execute()
         
         defaults = {}
         for item in response.data:
@@ -36,6 +37,8 @@ class ConfigurationController:
                 defaults["defaultcheckindurationdelta"] = item["value"].get("timedelta", "00:10:00")
             elif item["key"] == "customcheckindurationdelta":
                 defaults["customcheckindurationdelta"] = item["value"].get("timedelta", "00:10:00")
+            elif item["key"] == "VOTE_SESSION_QUOTA":
+                defaults["VOTE_SESSION_QUOTA"] = int(item["value"]) if str(item["value"]).isdigit() else 1
                 
         return defaults
 

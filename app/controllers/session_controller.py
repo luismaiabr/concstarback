@@ -156,7 +156,7 @@ class SessionController:
             except ValueError:
                 pass
                 
-        if len(all_votes.data) >= quota:
+        if len(all_votes.data) == quota:
             # Fetch old session to get configs, or use defaults
             old_session = client.table("sessions").select("*").eq("date", vote.date).eq("check_in_start_time", vote.original_checkin_time + ":00").execute()
             
@@ -168,7 +168,7 @@ class SessionController:
                 work_duration = old_session.data[0].get("session_work_duration", work_duration)
                 client.table("sessions").delete().eq("id", old_session.data[0]["id"]).execute()
             
-            # Insert new session
+            # Insert new session if it doesn't already exist
             new_session_data = {
                 "date": vote.date,
                 "check_in_start_time": vote.time + ":00",
@@ -177,10 +177,11 @@ class SessionController:
                 "is_custom_start_time": True,
                 "user_id": user_id
             }
-            client.table("sessions").insert(new_session_data).execute()
+            existing_target = client.table("sessions").select("id").eq("date", vote.date).eq("check_in_start_time", vote.time + ":00").execute()
+            if not existing_target.data:
+                client.table("sessions").insert(new_session_data).execute()
             
-            # Wipe slate clean for this original session time
-            client.table("votes").delete().eq("date", vote.date).eq("original_checkin_time", vote.original_checkin_time).execute()
+            # Note: We NO LONGER delete the votes here so that the UI can show the historical consensus.
             
             status_msg = "adopted"
 
