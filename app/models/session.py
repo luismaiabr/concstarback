@@ -15,4 +15,4 @@ class Vote(BaseModel):
 class CustomSessionResponse(BaseModel):
     hasCustomSession: bool
     checkInStartTime: str | None = None
-    startTime: str | None = None
+    checkInDurationDelta: str | None = None

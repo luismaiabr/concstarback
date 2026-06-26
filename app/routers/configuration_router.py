@@ -9,6 +9,10 @@ router = APIRouter(prefix="/api/v1/configurations", tags=["Configurations"])
 async def list_all():
     return await ConfigurationController.list_configs()
 
+@router.get("/defaults", summary="Busca configurações de horários padrão")
+async def get_defaults():
+    return await ConfigurationController.get_default_times()
+
 @router.get("/{key}", response_model=ConfigurationResponse, summary="Busca uma configuração por chave")
 async def get_by_key(key: str):
     return await ConfigurationController.get_config(key)

@@ -24,6 +24,22 @@ class ConfigurationController:
         return [ConfigurationResponse.model_validate(item) for item in response.data]
 
     @staticmethod
+    async def get_default_times():
+        client = get_supabase_client()
+        response = client.table("configurations").select("*").in_("key", ["defaultcheckintime", "defaultcheckindurationdelta", "customcheckindurationdelta"]).execute()
+        
+        defaults = {}
+        for item in response.data:
+            if item["key"] == "defaultcheckintime":
+                defaults["checkintime"] = item["value"].get("time", "06:00:00")
+            elif item["key"] == "defaultcheckindurationdelta":
+                defaults["defaultcheckindurationdelta"] = item["value"].get("timedelta", "00:10:00")
+            elif item["key"] == "customcheckindurationdelta":
+                defaults["customcheckindurationdelta"] = item["value"].get("timedelta", "00:10:00")
+                
+        return defaults
+
+    @staticmethod
     async def update_config(key: str, data: ConfigurationUpdate) -> ConfigurationResponse:
         client = get_supabase_client()
         update_payload = data.model_dump(exclude_unset=True)

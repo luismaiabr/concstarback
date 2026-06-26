@@ -18,29 +18,22 @@ class ConstancyController:
         from app.controllers.session_controller import SessionController
         import os
 
-        # Determinar checkin_time e start_time
-        checkin_time_str = "06:00:00"
-        start_time_str = "06:10:00"
-
-        # Try reading .config
-        config_path = os.path.join(os.path.dirname(__file__), "../../../frontend/public/.config")
-        if os.path.exists(config_path):
-            with open(config_path, "r") as f:
-                for line in f:
-                    parts = line.strip().split("=")
-                    if len(parts) == 2:
-                        if parts[0].strip() == "CHECKIN_START_TIME":
-                            checkin_time_str = parts[1].strip()
-                        elif parts[0].strip() == "STARTTIME":
-                            start_time_str = parts[1].strip()
+        from app.controllers.configuration_controller import ConfigurationController
+        
+        # Fetch default times dynamically
+        default_times = await ConfigurationController.get_default_times()
+        checkin_time_str = default_times.get("checkintime", "06:00:00")
+        duration_delta_str = default_times.get("defaultcheckindurationdelta", "00:10:00")
 
         # Try fetching custom session
         custom_session = await SessionController.get_today_custom_session()
         if custom_session.hasCustomSession:
             if custom_session.checkInStartTime:
                 checkin_time_str = custom_session.checkInStartTime
-            if custom_session.startTime:
-                start_time_str = custom_session.startTime
+            if custom_session.checkInDurationDelta:
+                duration_delta_str = custom_session.checkInDurationDelta
+            elif "customcheckindurationdelta" in default_times:
+                duration_delta_str = default_times["customcheckindurationdelta"]
 
         now = datetime.now()
         # parse hours, mins, secs
@@ -51,9 +44,18 @@ class ConstancyController:
             s = int(parts[2]) if len(parts) > 2 else 0
             return now.replace(hour=h, minute=m, second=s, microsecond=0)
 
+        def parse_timedelta(t_str):
+            from datetime import timedelta
+            parts = t_str.split(":")
+            h = int(parts[0]) if len(parts) > 0 else 0
+            m = int(parts[1]) if len(parts) > 1 else 0
+            s = int(parts[2]) if len(parts) > 2 else 0
+            return timedelta(hours=h, minutes=m, seconds=s)
+
         try:
             checkin_time = parse_time(checkin_time_str)
-            start_time = parse_time(start_time_str)
+            duration_delta = parse_timedelta(duration_delta_str)
+            start_time = checkin_time + duration_delta
 
             if now < checkin_time or now >= start_time:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Fora do horário de check-in permitido.")
@@ -61,7 +63,7 @@ class ConstancyController:
             pass # ignore parse errors
 
         client = get_supabase_client()
-        insert_payload = { "user_id": user_id, "checked_in": True }
+        insert_payload = { "user_id": user_id, "checked_in": True, "created_at": checkin_time.isoformat() }
         response = client.table("check_ins").insert(insert_payload).execute()  # type: ignore
         if not response.data:
             raise HTTPException(

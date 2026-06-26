@@ -48,15 +48,21 @@ class SessionController:
                 
         if top_votes >= quota:
             # top_time is HH:MM
-            hours, minutes = map(int, top_time.split(':'))
-            from datetime import timedelta
-            t = datetime.strptime(top_time, "%H:%M")
-            start_t = t + timedelta(minutes=15)
             
+            # Fetch custom checkin duration delta
+            delta_response = client.table("configurations").select("value").eq("key", "customcheckindurationdelta").execute()
+            duration_delta = "00:10:00"
+            if delta_response.data and isinstance(delta_response.data, list) and len(delta_response.data) > 0:
+                item = delta_response.data[0]
+                if isinstance(item, dict):
+                    val = item.get("value")
+                    if isinstance(val, dict):
+                        duration_delta = str(val.get("timedelta", "00:10:00"))
+                
             return CustomSessionResponse(
                 hasCustomSession=True,
                 checkInStartTime=f"{top_time}:00",
-                startTime=start_t.strftime("%H:%M:00")
+                checkInDurationDelta=duration_delta
             )
             
         return CustomSessionResponse(hasCustomSession=False)
