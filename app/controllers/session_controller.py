@@ -5,12 +5,15 @@ from datetime import datetime
 from app.models.session import CustomSessionResponse, Vote, CreateSessionDto
 
 async def sessionHasConflict(payload: CreateSessionDto):
+    if payload.is_custom_start_time:
+        return False # Allow multiple custom sessions per day
+
     client = get_supabase_client()
-    response = client.table("sessions").select("id").eq("date", payload.date).eq("isCustomStartTime", payload.is_custom_start_time).execute()
+    response = client.table("sessions").select("id").eq("date", payload.date).eq("is_custom_start_time", False).execute()
     if response.data and len(response.data) > 0:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Session already exists for this date and type."
+            detail="Default session already exists for this date."
         )
     return False
 
@@ -18,12 +21,25 @@ class SessionController:
     @staticmethod
     async def create_session(payload: CreateSessionDto):
         client = get_supabase_client()
+        
+        session_work_duration = payload.session_work_duration
+        if not session_work_duration:
+            config_response = client.table("configurations").select("value").eq("key", "default_session_work_duration").execute()
+            session_work_duration = "00:50:00"
+            if config_response.data and len(config_response.data) > 0:
+                item = config_response.data[0]
+                if isinstance(item, dict):
+                    val = item.get("value")
+                    if isinstance(val, dict):
+                        session_work_duration = str(val.get("timedelta", "00:50:00"))
+
         data = {
             "date": payload.date,
-            "checkInStartTime": payload.check_in_start_time,
+            "check_in_start_time": payload.check_in_start_time,
             "check_in_duration_delta": payload.check_in_duration_delta,
-            "isCustomStartTime": payload.is_custom_start_time,
-            "user": payload.user_id
+            "session_work_duration": session_work_duration,
+            "is_custom_start_time": payload.is_custom_start_time,
+            "user_id": payload.user_id
         }
         # In Supabase, if we insert, it will return the inserted row
         response = client.table("sessions").insert(data).execute()
@@ -86,11 +102,18 @@ class SessionController:
                     val = item.get("value")
                     if isinstance(val, dict):
                         duration_delta = str(val.get("timedelta", "00:10:00"))
+                        
+            # Fetch custom session work duration
+            work_dur_response = client.table("sessions").select("session_work_duration").eq("date", today).eq("is_custom_start_time", True).execute()
+            session_work_duration = "00:50:00"
+            if work_dur_response.data and len(work_dur_response.data) > 0:
+                session_work_duration = work_dur_response.data[0].get("session_work_duration", "00:50:00")
                 
             return CustomSessionResponse(
                 hasCustomSession=True,
                 checkInStartTime=f"{top_time}:00",
-                checkInDurationDelta=duration_delta
+                checkInDurationDelta=duration_delta,
+                sessionWorkDuration=session_work_duration
             )
             
         return CustomSessionResponse(hasCustomSession=False)
@@ -99,8 +122,8 @@ class SessionController:
     async def submit_vote(vote: Vote, user_id: str):
         client = get_supabase_client()
         
-        # Check if the user has already voted for this date
-        existing_vote = client.table("votes").select("*").eq("date", vote.date).eq("user_id", user_id).execute()
+        # Check if the user has already voted for this date and specific session
+        existing_vote = client.table("votes").select("*").eq("date", vote.date).eq("original_checkin_time", vote.original_checkin_time).eq("user_id", user_id).execute()
         
         if existing_vote.data:
             existing = existing_vote.data[0]
@@ -117,6 +140,7 @@ class SessionController:
             client.table("votes").insert({
                 "date": vote.date,
                 "time": vote.time,
+                "original_checkin_time": vote.original_checkin_time,
                 "user_id": user_id
             }).execute()
             return {"status": "added"}
