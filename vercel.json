@@ -1,4 +1,7 @@
 {
+  "env": {
+    "BACK_END_PORT": "8000"
+  },
   "rewrites": [
     {
       "source": "/(.*)",
