@@ -16,3 +16,7 @@ async def check_in(user_id: str):
 @router.post("/cancel", response_model=CheckInResponse)
 async def cancel_check_in(user_id: str, cancel_data: CancelCheckInDto):
     return await ConstancyController.cancel_check_in(user_id, cancel_data)
+
+@router.get("/users/{user_id}")
+async def get_user_constancy(user_id: str):
+    return await ConstancyController.get_user_constancy(user_id)

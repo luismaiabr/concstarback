@@ -59,13 +59,30 @@ class ConstancyController:
             duration_delta = parse_timedelta(duration_delta_str)
             start_time = checkin_time + duration_delta
 
-            if now < checkin_time or now >= start_time:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Fora do horário de check-in permitido.")
+            # if now < checkin_time or now >= start_time:
+            #     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Fora do horário de check-in permitido.")
         except ValueError:
             pass # ignore parse errors
 
         client = get_supabase_client()
-        insert_payload = { "user_id": user_id, "checked_in": True, "created_at": checkin_time.isoformat() }
+        date_str = now.strftime("%Y-%m-%d")
+        
+        # Ensure a constancy_day exists for today
+        constancy_day_response = client.table("constancy_days").select("id").eq("date", date_str).execute()
+        if constancy_day_response.data and len(constancy_day_response.data) > 0:
+            constancy_day_id = constancy_day_response.data[0]["id"]
+        else:
+            new_day = client.table("constancy_days").insert({"date": date_str}).execute()
+            if not new_day.data:
+                raise HTTPException(status_code=500, detail="Falha ao criar constancy day.")
+            constancy_day_id = new_day.data[0]["id"]
+
+        insert_payload = { 
+            "constancy_day_id": constancy_day_id,
+            "user_id": user_id, 
+            "checked_in": True, 
+            "created_at": checkin_time.isoformat() 
+        }
         response = client.table("check_ins").insert(insert_payload).execute()  # type: ignore
         if not response.data:
             raise HTTPException(
@@ -81,3 +98,37 @@ class ConstancyController:
         if not response.data:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Check-in não encontrado para cancelar.")
         return CheckInResponse.model_validate(response.data[0])
+
+    @staticmethod
+    async def get_user_constancy(user_id: str) -> dict:
+        client = get_supabase_client()
+        
+        # 1. Fetch check-ins
+        checkins_response = client.table("check_ins").select("created_at").eq("user_id", user_id).eq("checked_in", True).execute()
+        
+        # 2. Fetch questions to count total work
+        questions_response = client.table("questions").select("amount, date").eq("user_id", user_id).execute()
+        
+        dates_set = set()
+        total_work = 0
+        
+        for record in checkins_response.data:
+            if "created_at" in record and record["created_at"]:
+                date_str = record["created_at"][:10]
+                dates_set.add(date_str)
+            total_work += 1
+            
+        for record in questions_response.data:
+            amount = float(record.get("amount", 0))
+            total_work += int(amount)
+            
+            date_val = record.get("date")
+            
+            if date_val:
+                dates_set.add(date_val[:10])
+                
+        return {
+            "user_id": user_id,
+            "dates": sorted(list(dates_set)),
+            "total_work": total_work
+        }
