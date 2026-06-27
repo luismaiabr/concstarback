@@ -48,8 +48,69 @@ class SessionController:
     @staticmethod
     async def list_sessions():
         client = get_supabase_client()
-        response = client.table("sessions").select("*").execute()
-        return response.data
+        response = client.table("sessions").select("*, constancy_days(user_id, users(name, profile_color))").execute()
+        
+        sessions = response.data
+        import os
+        import zoneinfo
+        from datetime import datetime, timedelta
+        
+        tz_str = os.getenv("APP_TIMEZONE", "America/Sao_Paulo")
+        tz = zoneinfo.ZoneInfo(tz_str)
+        now = datetime.now(tz)
+        
+        result = []
+        for session in sessions:
+            session_date_str = session.get("date")
+            check_in_start_str = session.get("check_in_start_time", "00:00:00")
+            duration_delta_str = session.get("check_in_duration_delta", "00:10:00")
+            work_duration_str = session.get("session_work_duration", "00:50:00")
+            
+            def parse_time_str(t_str):
+                parts = t_str.split(":")
+                h = int(parts[0]) if len(parts) > 0 else 0
+                m = int(parts[1]) if len(parts) > 1 else 0
+                s = int(parts[2]) if len(parts) > 2 else 0
+                return timedelta(hours=h, minutes=m, seconds=s)
+            
+            try:
+                dt_str = f"{session_date_str} {check_in_start_str}"
+                session_start_time = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=tz)
+                delta_td = parse_time_str(duration_delta_str)
+                work_td = parse_time_str(work_duration_str)
+                session_end_time = session_start_time + delta_td + work_td
+                is_finished = now >= session_end_time
+            except Exception:
+                is_finished = False
+
+            checkouts_realizados = []
+            constancy_records = session.get("constancy_days") or []
+            # Sometimes constancy_days could be a dict if returning single item, but usually list
+            if isinstance(constancy_records, dict):
+                constancy_records = [constancy_records]
+                
+            for record in constancy_records:
+                user_info = record.get("users") or {}
+                # PostgREST can return nested lists if it's 1-to-many, but users is many-to-1 from constancy_days
+                if isinstance(user_info, list) and len(user_info) > 0:
+                    user_info = user_info[0]
+                elif isinstance(user_info, list):
+                    user_info = {}
+                    
+                checkouts_realizados.append({
+                    "user_id": record.get("user_id"),
+                    "name": user_info.get("name", "Unknown"),
+                    "color": user_info.get("profile_color") or "#f1f5f9"
+                })
+                
+            session_dict = session.copy()
+            session_dict.pop("constancy_days", None)
+            session_dict["is_finished"] = is_finished
+            session_dict["checkouts_realizados"] = checkouts_realizados
+            
+            result.append(session_dict)
+            
+        return result
 
     @staticmethod
     async def get_today_custom_session() -> CustomSessionResponse:

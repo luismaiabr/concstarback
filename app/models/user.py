@@ -5,6 +5,7 @@ class UserBase(BaseModel):
     name: str = Field(..., min_length=1, description="Nome completo do usuário")
     email: EmailStr = Field(..., description="Endereço de e-mail do usuário")
     profilePhotoUrl: HttpUrl | None = Field(None, description="URL pública da foto de perfil do usuário")
+    profile_color: str | None = Field("#f1f5f9", description="Cor do perfil do usuário")
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8, max_length=72, description="Senha do usuário (mínimo 8 caracteres, máximo 72)")

@@ -39,3 +39,11 @@ class UserController:
         if not response.data:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado")
         return UserResponse.model_validate(response.data[0])
+
+    @staticmethod
+    async def get_user_color(user_id: UUID) -> dict:
+        client = get_supabase_client()
+        response = client.table("users").select("profile_color").eq("id", str(user_id)).execute()
+        if not response.data:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado")
+        return {"profile_color": response.data[0].get("profile_color", "#f1f5f9")}

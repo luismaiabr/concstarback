@@ -17,3 +17,7 @@ async def create_user(user: UserCreate):
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(user_id: UUID):
     return await UserController.get_user(user_id)
+
+@router.get("/{user_id}/color")
+async def get_user_color(user_id: UUID):
+    return await UserController.get_user_color(user_id)
