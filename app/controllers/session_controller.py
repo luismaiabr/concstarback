@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 from app.db.client import get_supabase_client
 from typing import List
 from datetime import datetime
-from app.models.session import CustomSessionResponse, Vote, CreateSessionDto
+from app.models.session import CustomSessionResponse, Vote, CreateSessionDto, CheckoutSessionDto
 
 async def sessionHasConflict(payload: CreateSessionDto):
     if payload.is_custom_start_time:
@@ -192,3 +192,34 @@ class SessionController:
         client = get_supabase_client()
         response = client.table("votes").select("*").execute()
         return response.data
+
+    @staticmethod
+    async def checkout_session(payload: CheckoutSessionDto, user_id: str):
+        client = get_supabase_client()
+        
+        # Check if already exists to avoid throwing unique constraint error directly to client
+        # though we could also just let Supabase handle it if we want.
+        existing = client.table("constancy_days") \
+            .select("id") \
+            .eq("date", payload.date) \
+            .eq("user_id", user_id) \
+            .eq("session_id", str(payload.session_id)) \
+            .execute()
+            
+        if existing.data and len(existing.data) > 0:
+            return {"status": "already_checked_out"}
+            
+        # Insert checkout record
+        try:
+            client.table("constancy_days").insert({
+                "date": payload.date,
+                "user_id": user_id,
+                "session_id": str(payload.session_id)
+            }).execute()
+        except Exception as e:
+            # Handle potential duplicate key race condition
+            if "duplicate key value violates unique constraint" in str(e):
+                return {"status": "already_checked_out"}
+            raise HTTPException(status_code=500, detail=str(e))
+            
+        return {"status": "success"}

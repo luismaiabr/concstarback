@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from app.controllers.session_controller import SessionController, sessionHasConflict
 from app.core.security import get_current_user
-from app.models.session import Vote, CreateSessionDto
+from app.models.session import Vote, CreateSessionDto, CheckoutSessionDto
 
 router = APIRouter(prefix="/api/v1/sessions", tags=["Sessions"])
 
@@ -24,3 +24,7 @@ async def submit_vote(vote: Vote, user_id: str = Depends(get_current_user)):
 @router.get("/votes")
 async def list_votes():
     return await SessionController.list_votes()
+
+@router.post("/checkout")
+async def checkout_session(payload: CheckoutSessionDto, user_id: str = Depends(get_current_user)):
+    return await SessionController.checkout_session(payload, user_id)
