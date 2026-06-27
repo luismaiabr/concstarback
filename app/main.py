@@ -19,9 +19,11 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+from app.core.config import settings
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://100.101.78.95:4203", "100.101.78.95:4203","100.101.78.95"],
+    allow_origins=settings.ALLOW_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
