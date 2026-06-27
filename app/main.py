@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,11 +7,13 @@ from app.core.scheduler import start_scheduler, stop_scheduler
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
-    start_scheduler()
+    # Startup (disable scheduler on Vercel's serverless environment)
+    if not os.getenv("VERCEL"):
+        start_scheduler()
     yield
     # Shutdown
-    stop_scheduler()
+    if not os.getenv("VERCEL"):
+        stop_scheduler()
 
 app = FastAPI(
     title="Concstar Backend",
