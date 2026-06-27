@@ -23,7 +23,15 @@ from app.core.config import settings
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOW_ORIGINS,
+    allow_origins=[
+        "http://100.101.78.95:4203",
+        "http://100.101.78.95:4203/",
+        "https://concstarfront.vercel.app",
+        "https://concstarfront.vercel.app/",
+        "http://concstarfront.vercel.app",
+        "http://concstarfront.vercel.app/",
+        "concstarfront.vercel.app"
+    ] + settings.ALLOW_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
